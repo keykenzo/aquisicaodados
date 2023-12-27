@@ -1,0 +1,68 @@
+from serial.tools import list_ports
+import serial
+import time
+import csv
+
+i = 0
+
+while i < 1:
+    # Identify the correct port
+    ports = list_ports.comports()
+    for port in ports: print(port)
+    ComPort = input("Informe a sua COM USB, por exemplo:'COM2', digite:")
+    i = i +2
+
+# Create CSV file
+f = open("data.csv","w",newline='')
+f.truncate()
+
+# Open the serial com
+serialCom = serial.Serial(ComPort,115200)
+
+
+print("== Ola, vamos salvar os dados do ensaio ==")
+segundos = int(input("Digite a quantidade de segundos:"))
+
+
+# Toggle DTR to reset the Arduino
+serialCom.setDTR(False)
+time.sleep(1)
+serialCom.flushInput()
+serialCom.setDTR(True)
+
+
+# How many data points to record
+
+timeout = segundos # [seconds]
+timeout_start = time.time()
+
+kmax = 5
+
+
+while time.time() < timeout_start + timeout:
+    # Loop through and collect data as it is available
+    for k in range(kmax):
+        try:
+            # Read the line
+            s_bytes = serialCom.readline()
+            decoded_bytes = s_bytes.decode("utf-8").strip('\r\n')
+            # print(decoded_bytes)
+
+            # Parse the line
+            if k == 0:
+                values = decoded_bytes.split(",")
+            else:
+                values = [float(x) for x in decoded_bytes.split()]
+            print(values)
+
+            # Write to CSV
+            writer = csv.writer(f,delimiter=",")
+            writer.writerow(values)
+
+        except:
+            print("Error encountered, line was not recorded.")
+
+
+ConfirmExit = input("Digite 's' para sair:")
+
+f.close()
