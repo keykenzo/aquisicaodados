@@ -1,0 +1,127 @@
+ #include "DigitLedDisplay.h"
+ 2 #include <TM1637Display.h>
+ 3 #include <math.h>
+ 4 #include <Wire.h>
+ 5 #include <SPI.h>
+ 6 #include <Adafruit_MAX31865.h>
+ 7 #include <pt100rtd.h>
+ 8
+ 9 #define cellPinA0
+ 10 #define RREF 430.0
+ 11 #define C2F(c)((9 * c / 5) +32);
+ 12 #define offset0.79
+ 13
+ 14 TM1637Display display(3, 4);
+ 15 DigitLedDisplayld = DigitLedDisplay(7, 6,5);
+ 16 Adafruit_MAX31865max = Adafruit_MAX31865(10,11, 12, 13);
+ 17
+ 18 pt100rtd PT100= pt100rtd() ;
+ 19
+ 20
+ 21
+ 22 const uint8_tSEG_O[] = {
+ 23 SEG_G | SEG_E | SEG_D | SEG_C // O-pequeno
+ 24 };
+ 25
+ 26 const floatmvc = 4.97; //Referenciada Tensao do Arduino
+ 27 int increment= 0;
+ 28
+ 29
+ 30 void setup(){
+ 31 Serial.begin(115200);
+ 32 max.begin(MAX31865_4WIRE);
+ 33 ld.setBright(9);// range is 0-15 //DigitLedDisplay
+ 34 ld.setDigitLimit(8); //DigitLedDisplay
+ 35 display.setBrightness(1); //TM1637Display
+ 36 }
+APÊNDICEA. Algoritmos 90
+ 37
+ 38 void loop()
+ 39 {
+ 40 uint16_t rtd,ohmsx100 ;
+ 41 uint32_t dummy;
+ 42 float ohms, Tlut ;
+ 43 float Tcvd, Tcube, Tpoly, Trpoly ;
+ 44 rtd = max.readRTD();
+ 45
+ 46 // Use uint16_t (ohms * 100) sinceit matches data typein lookup table.
+ 47 dummy = ((uint32_t)(rtd << 1)) * 100* ((uint32_t) floor(RREF));
+ 48 dummy >>= 16;
+ 49 ohmsx100 = (uint16_t) (dummy & 0xFFFF);
+ 50
+ 51 // or useexact ohms floating pointvalue.
+ 52 ohms = (float)(ohmsx100 / 100) + ((float)(ohmsx100 % 100) /100.0) ;
+ 53
+ 54 Tlut = PT100.celsius(ohmsx100) ;
+ 55 float temperature= Tlut-offset;
+ 56
+ 57 ld.write(2,B01100011);
+ 58 ld.write(1,B01001110);
+ 59 ld.write(5,B10000000);
+ 60 ld.printDigit(temperature,5);
+ 61
+ 62 float numeroDecimal = temperature;
+ 63 int dezena =int(numeroDecimal);
+ 64 float parteDecimal = (numeroDecimal-dezena);
+ 65
+ 66
+ 67 if (parteDecimal> 0.10)
+ 68 {
+ 69 parteDecimal =parteDecimal*100;
+ 70 ld.printDigit(parteDecimal,2);
+ 71 }
+ 72 if (parteDecimal< 0.10)
+ 73 {
+ 74 parteDecimal =parteDecimal*100;
+ 75 ld.write(4,B01111110);
+ 76 ld.printDigit(parteDecimal,2);
+ 77 }
+ 78
+ 79
+ 80 int deMenor =1250;
+ 81 int deMaior =5000;
+ 82
+ 83 int mvState =analogRead(cellPin)*mvc;
+ 84 int mvMap =map(mvState, deMenor, deMaior, 0, 3);
+ 85
+ 86
+ 87 switch(mvMap)
+ 88 {
+ 89 case 0:
+ 90 display.setSegments(SEG_O,1,0);
+ 91 display.clear();
+ 92 break;
+ 93
+ 94 case 1:
+APÊNDICEA. Algoritmos 91
+ 95 display.setSegments(SEG_O,1,0);
+ 96 display.setSegments(SEG_O,1,1);
+ 97 break;
+ 98
+ 99 case 2:
+ 100 display.setSegments(SEG_O,1,0);
+ 101 display.setSegments(SEG_O,1,1);
+ 102 display.setSegments(SEG_O,1,2);
+ 103 break;
+ 104
+ 105 case 3:
+ 106 display.setSegments(SEG_O,1,0);
+ 107 display.setSegments(SEG_O,1,1);
+ 108 display.setSegments(SEG_O,1,2);
+ 109 display.setSegments(SEG_O,1,3);
+ 110 break;
+ 111 }
+ 112
+ 113 increment = increment + 10;
+ 114
+ 115 if (increment> 1000)
+ 116 {
+ 117 display.clear();
+ 118 increment = 0;
+ 119 }
+ 120 Serial.println(temperature);
+ 121
+ 122
+ 123 delay(2000);
+ 124
+ 125 }
